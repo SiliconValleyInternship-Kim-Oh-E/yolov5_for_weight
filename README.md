@@ -1,3 +1,4 @@
 # yolov5_for_weight
 
-repository need to clone in yolo_recognition
+yolov5 기반
+repository need to clone in test.ipynb (yolo_recognition repository)
