@@ -12,7 +12,6 @@ Usage:
 import argparse
 import sys
 import time
-import math
 from pathlib import Path
 
 import cv2
@@ -181,7 +180,7 @@ def run(weights='yolov5s.pt',  # model.pt path(s)
 
                     else:
                       if tmp[names[int(c)]][1]-tmp[names[int(c)]][0]>th:
-                        db[names[int(c)]].append([math.floor(tmp[names[int(c)]][0]/video_fps),math.ceil(tmp[names[int(c)]][1]/video_fps)])
+                        db[names[int(c)]].append([round(tmp[names[int(c)]][0]/video_fps),round(tmp[names[int(c)]][1]/video_fps)])
                       tmp[names[int(c)]][0]=frame
                       tmp[names[int(c)]][1]=frame
 
@@ -234,7 +233,7 @@ def run(weights='yolov5s.pt',  # model.pt path(s)
                     vid_writer[i].write(im0)
     for name in db:
         if tmp[name][1]-tmp[name][0]>th:
-          db[name].append([math.floor(tmp[name][0]/video_fps),math.ceil(tmp[name][1]/video_fps)])
+          db[name].append([round(tmp[name][0]/video_fps),round(tmp[name][1]/video_fps)])
 
     if save_txt or save_img:
         s = f"\n{len(list(save_dir.glob('labels/*.txt')))} labels saved to {save_dir / 'labels'}" if save_txt else ''
