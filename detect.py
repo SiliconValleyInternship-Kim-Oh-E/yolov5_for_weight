@@ -28,13 +28,20 @@ from utils.general import check_img_size, check_requirements, check_imshow, colo
 from utils.plots import colors, plot_one_box
 from utils.torch_utils import select_device, load_classifier, time_sync
 
+###################################################################################################################
+# connect aws s3 bucket
+import boto3
+# s3 bucket name
+bucket_name = 'dongheon97'
+s3 = boto3.client('s3')
 # calculate fps of input video
 def get_fps(filename):
     video = cv2.VideoCapture(filename)
     return video.get(cv2.CAP_PROP_FPS)
+###################################################################################################################
 
 @torch.no_grad()
-def run(weights='yolov5s.pt',  # model.pt path(s)
+def run(weights='./best.pt',  # model.pt path(s)
         source='data/images',  # file/dir/URL/glob, 0 for webcam
         imgsz=640,  # inference size (pixels)
         conf_thres=0.25,  # confidence threshold
@@ -51,8 +58,8 @@ def run(weights='yolov5s.pt',  # model.pt path(s)
         augment=False,  # augmented inference
         visualize=False,  # visualize features
         update=False,  # update all models
-        project='runs/detect',  # save results to project/name
-        name='exp',  # save results to project/name
+        project='silicon_valley/',  # save results to project/name
+        name='output',  # save results to project/name
         exist_ok=False,  # existing project/name ok, do not increment
         line_thickness=3,  # bounding box thickness (pixels)
         hide_labels=False,  # hide labels
@@ -70,8 +77,15 @@ def run(weights='yolov5s.pt',  # model.pt path(s)
 
     # Directories
     save_dir = increment_path(Path(project) / name, exist_ok=exist_ok)  # increment run
-    (save_dir / 'labels' if save_txt else save_dir).mkdir(parents=True, exist_ok=True)  # make dir
+   
+    #####################################
+    print('\n save_dir ', save_dir, '\n')
 
+    (save_dir / 'labels' if save_txt else save_dir).mkdir(parents=True, exist_ok=True)  # make dir
+    
+    #####################################
+    print('\n save_dir ', save_dir, '\n')
+    
     # Initialize
     set_logging()
     device = select_device(device)
@@ -106,7 +120,7 @@ def run(weights='yolov5s.pt',  # model.pt path(s)
     if device.type != 'cpu':
         model(torch.zeros(1, 3, imgsz, imgsz).to(device).type_as(next(model.parameters())))  # run once
     t0 = time.time()
-
+    
 
     # db: Store continuous appearance intervals for each character
     # tmp: store one continuous appearance interval temporarily
@@ -145,12 +159,7 @@ def run(weights='yolov5s.pt',  # model.pt path(s)
         # Apply Classifier
         if classify:
             pred = apply_classifier(pred, modelc, img, im0s)
-
-        #file for metadata
-        metadata = open('appear_list.txt', 'a') # append mode
-        # init string for metadata
-        appearance = ''
-
+        
         # Process detections
         for i, det in enumerate(pred):  # detections per image
             if webcam:  # batch_size >= 1
@@ -161,6 +170,16 @@ def run(weights='yolov5s.pt',  # model.pt path(s)
             p = Path(p)  # to Path
             save_path = str(save_dir / p.name)  # img.jpg
             txt_path = str(save_dir / 'labels' / p.stem) + ('' if dataset.mode == 'image' else f'_{frame}')  # img.txt
+
+            ###################################################################################################################
+            # s3 path
+            append_path = increment_path(Path(project) / p.name, exist_ok=exist_ok)
+            save_to_s3 = str(append_path / '')
+            print('\nsave_to_s3: ', append_path, '\n')
+            print('save_path: ', save_path)
+            print('txt_path: ', txt_path, '\n')
+            ###################################################################################################################
+
             s += '%gx%g ' % img.shape[2:]  # print string
             gn = torch.tensor(im0.shape)[[1, 0, 1, 0]]  # normalization gain whwh
             imc = im0.copy() if save_crop else im0  # for save_crop
@@ -172,9 +191,7 @@ def run(weights='yolov5s.pt',  # model.pt path(s)
                 for c in det[:, -1].unique():
                     n = (det[:, -1] == c).sum()  # detections per class
                     s += f"{n} {names[int(c)]}{'s' * (n > 1)}, "  # add to string                   
-                    # input data append
-                    appearance += f"frame: {frame}, appear_time: {round(frame/video_fps, 2)}, actor: {names[int(c)]}, "
-
+                    
                     if frame-tmp[names[int(c)]][1]<th:
                       tmp[names[int(c)]][1]=frame
 
@@ -200,10 +217,11 @@ def run(weights='yolov5s.pt',  # model.pt path(s)
                             plot_one_box(xyxy, im0, label=label, color=colors(c, True), line_thickness=line_thickness)
                             if save_crop:
                                 save_one_box(xyxy, imc, file=save_dir / 'crops' / names[c] / f'{p.stem}.jpg', BGR=True)
-
+                            
+                            '''
                             # append to appear_list.txt
                             metadata.write(appearance + '\n')                            
-                       
+                            '''
 
             # Print time (inference + NMS)
             print(f'{s}Done. ({t2 - t1:.3f}s)')
@@ -242,16 +260,21 @@ def run(weights='yolov5s.pt',  # model.pt path(s)
     if update:
         strip_optimizer(weights)  # update model (to fix SourceChangeWarning)
     
+    ###################################################################################################################
+    # video to s3 bucket 
+    s3.upload_file(save_path, bucket_name, save_to_s3)
+    ###################################################################################################################
+    
     #metadata.close()
     print(f'Done. ({time.time() - t0:.3f}s)')
 
     print(db)
-
+    return db
 
 def parse_opt():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--weights', nargs='+', type=str, default='yolov5s.pt', help='model.pt path(s)')
-    parser.add_argument('--source', type=str, default='data/images', help='file/dir/URL/glob, 0 for webcam')
+    parser.add_argument('--weights', nargs='+', type=str, default='./best.pt', help='model.pt path(s)')
+    parser.add_argument('--source', type=str, default='./data', help='file/dir/URL/glob, 0 for webcam')
     parser.add_argument('--imgsz', '--img', '--img-size', type=int, default=640, help='inference size (pixels)')
     parser.add_argument('--conf-thres', type=float, default=0.25, help='confidence threshold')
     parser.add_argument('--iou-thres', type=float, default=0.45, help='NMS IoU threshold')
@@ -267,8 +290,8 @@ def parse_opt():
     parser.add_argument('--augment', action='store_true', help='augmented inference')
     parser.add_argument('--visualize', action='store_true', help='visualize features')
     parser.add_argument('--update', action='store_true', help='update all models')
-    parser.add_argument('--project', default='runs/detect', help='save results to project/name')
-    parser.add_argument('--name', default='exp', help='save results to project/name')
+    parser.add_argument('--project', default='silicon_valley/', help='save results to project/name')
+    parser.add_argument('--name', default='output', help='save results to project/name')
     parser.add_argument('--exist-ok', action='store_true', help='existing project/name ok, do not increment')
     parser.add_argument('--line-thickness', default=3, type=int, help='bounding box thickness (pixels)')
     parser.add_argument('--hide-labels', default=False, action='store_true', help='hide labels')
