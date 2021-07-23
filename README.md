@@ -9,7 +9,12 @@ This repository is written by deep learning&video processing team.
   </tr>
 </table>
 
-It modifes yolov5, and is designed to be cloned for face recognition at test.py of yolo_recognition repository.
-Currently, the same content has been incorporated into the /backend/yolov5/ in gaga-gaga repository
+It modifes yolov5, and is designed to be cloned for face recognition at
+<a href="https://github.com/SiliconValleyInternship-Kim-Oh-E/yolo_recognition/blob/main/test.ipynb">test.ipynb</a> &
+<a href="https://github.com/SiliconValleyInternship-Kim-Oh-E/yolo_recognition/blob/main/train_and_test.ipynb">train_and_test.ipynb</a> of
+<a href="https://github.com/SiliconValleyInternship-Kim-Oh-E/yolo_recognition">yolo_recognition repository.</a>
+<br>
+Currently, the same content has been incorporated into the 
+<a href="https://github.com/SiliconValleyInternship-Kim-Oh-E/gaga-gaga/tree/main/backend/yolov5">backend/yolov5 in gaga-gaga repository</a>
 
 
